@@ -1,0 +1,23 @@
+# Never commit credentials. All tokens belong in Apps Script
+# Script Properties, not in files.
+.env
+.env.*
+*credentials*.json
+*client_secret*.json
+*token*.json
+secrets.*
+
+# clasp (Apps Script CLI) — .clasp.json holds your private script id
+.clasp.json
+.clasprc.json
+
+# Local scratch copies of scripts with real IDs filled in
+*.local.gs
+*.local.js
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
