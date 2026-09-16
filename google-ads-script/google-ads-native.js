@@ -30,7 +30,7 @@ var GCONFIG = {
 // in apps-script/shared.gs (see the explanation there). This script runs inside
 // Google Ads, not the Apps Script project, so it can't read that file.
 var NAME_SEPARATOR = "_";
-var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+var NAME_FIELDS = [];   // e.g. ["Brand", "Campaign", "Market", "Objective"]
 
 var GHEADERS = ["Date Pulled"].concat(NAME_FIELDS, [
   "Campaign Name (raw)", "Campaign ID", "Campaign Type",

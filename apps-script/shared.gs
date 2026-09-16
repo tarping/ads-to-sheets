@@ -8,24 +8,21 @@
 
 
 // ─────────────────────────────────────────────────────────────
-//  CAMPAIGN NAMING  ← THE ONE PLACE TO EDIT FOR YOUR CONVENTION
+//  CAMPAIGN NAMING  ← OPTIONAL, OFF BY DEFAULT
 // ─────────────────────────────────────────────────────────────
-//  Every puller splits each campaign name on NAME_SEPARATOR and
-//  writes one column per entry in NAME_FIELDS, in this order,
-//  right after "Date Pulled". Headers, rows and column positions
-//  in all four pullers are built from these two values, so
-//  changing them here is the whole change.
+//  If your campaign names follow a convention, the pullers can
+//  split them into columns you can pivot on. Every puller splits
+//  each name on NAME_SEPARATOR and writes one column per entry in
+//  NAME_FIELDS, in order, right after "Date Pulled". Headers, rows
+//  and column positions in all four pullers are built from these
+//  two values, so changing them here is the whole change.
 //
-//  Default convention (underscore-separated, 7 fields):
+//  Off by default (NAME_FIELDS = []): conventions differ for every
+//  team, and the full campaign name is always written anyway.
 //
-//    "Project Number_Artist_Release_Objective_Segment_PM_Mes"
-//     e.g. "PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
-//     (PM = the person managing the campaign, Mes = month)
-//
-//  Yours is probably different. Examples:
-//    "Brand | Market | Objective"  → NAME_SEPARATOR = "|";
-//                                    NAME_FIELDS = ["Brand", "Market", "Objective"];
-//    no convention at all          → NAME_FIELDS = [];  (the raw name is always kept)
+//  Example — names like "Acme | Spring Sale | ES | Conversions":
+//    var NAME_SEPARATOR = "|";
+//    var NAME_FIELDS = ["Brand", "Campaign", "Market", "Objective"];
 //
 //  A name that does not follow the convention costs nothing: the
 //  segments it lacks come back blank, and the raw name has its own
@@ -37,7 +34,7 @@
 //  change there — it runs outside this project and has its own copy.
 // ─────────────────────────────────────────────────────────────
 var NAME_SEPARATOR = "_";
-var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+var NAME_FIELDS = [];   // e.g. ["Brand", "Campaign", "Market", "Objective"]
 
 // Campaign name → one trimmed value per NAME_FIELDS entry, blanks for
 // missing segments. Anything past the last field is dropped.

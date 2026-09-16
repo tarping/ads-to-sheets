@@ -70,9 +70,10 @@ engine.
    Meta `act_…` (with prefix) · Google Ads customer id + MCC id, digits only · TikTok
    advertiser ids · Spotify ad account UUIDs (prefer the `SPOTIFY_ACCOUNTS` Script
    Property). These go into *their* Apps Script copy, not into commits to this repo.
-3. **Their campaign naming convention.** Get 2–3 real campaign names, work out the
-   separator and the meaning of each part, and set `NAME_SEPARATOR` / `NAME_FIELDS`. No
-   consistent convention → `NAME_FIELDS = []`. Names that don't fit simply leave blanks.
+3. **Their campaign naming convention (optional).** Off by default (`NAME_FIELDS = []`).
+   If they want name parts as columns, get 2–3 real campaign names, work out the separator
+   and the meaning of each part, and set `NAME_SEPARATOR` / `NAME_FIELDS` in their copy.
+   Keep the repo default empty. Names that don't fit simply leave blanks.
 4. **Start date** (`START_DATE`, `YYYY-MM-DD`) — the earliest data they want.
 5. **Timezone** for the daily triggers (Apps Script → Project Settings).
 6. **Credentials** — walk them through `docs/<platform>.md`, then list which Script

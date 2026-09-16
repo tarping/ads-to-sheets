@@ -130,41 +130,28 @@ Spotify ad account IDs are UUIDs, not numbers. As with TikTok, several accounts 
 tab and are told apart by the `Account` column — and each one's billing currency is written
 to its own `Currency` column, so mixed-currency tabs stay readable.
 
-### Campaign naming — `shared.gs`
+### Campaign naming (optional) — `shared.gs`
 
-Every puller splits campaign names using two values at the top of `shared.gs`:
+Every tab has the full campaign name. If your names follow a convention, the pullers can
+also split them into separate columns. It's off by default; turn it on with two values at
+the top of `shared.gs`:
 
 ```js
-var NAME_SEPARATOR = "_";
-var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+var NAME_SEPARATOR = "|";
+var NAME_FIELDS = ["Brand", "Campaign", "Market", "Objective"];
 ```
 
-The default expects underscore-separated names with seven parts (PM is the person managing
-the campaign, Mes is the month):
-
-```
-"PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
- │        │             │          │               │         │     └ Mes
- │        │             │          │               │         └ PM
- │        │             │          │               └ Segment
- │        │             │          └ Objective
- │        │             └ Release
- │        └ Artist
- └ Project Number
-```
-
-Names that don't follow it cost nothing: the missing segments come back blank, the raw
-name is kept in its own column, and the metrics land in the sheet either way.
-
-**This is one team's convention — change it to yours.** Set the separator and list your
-parts in order; headers, rows and column positions in all four pullers follow
-automatically. Some examples:
+Set the separator and list your name's parts in order; headers, rows and column positions
+in all four pullers follow automatically. Some examples:
 
 | Your names look like | Set |
 |---|---|
 | `Acme \| Spring Sale \| ES \| Conversions` | `NAME_SEPARATOR = "\|"`, `NAME_FIELDS = ["Brand", "Campaign", "Market", "Objective"]` |
 | `2026Q3-Launch-Retargeting` | `NAME_SEPARATOR = "-"`, `NAME_FIELDS = ["Quarter", "Theme", "Audience"]` |
-| no convention | `NAME_FIELDS = []` |
+| no convention | `NAME_FIELDS = []` (the default) |
+
+Names that don't follow it cost nothing: the missing parts come back blank, and the
+metrics land in the sheet either way.
 
 Using `google-ads-native.js`? It runs inside Google Ads rather than this project, so make
 the same change at the top of that file too.
