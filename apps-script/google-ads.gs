@@ -34,19 +34,14 @@ var GADS = {
   API_VERSION      : "v23"
 };
 
-var GADS_HEADERS = [
-  "Date Pulled",
-  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
-  // ↑ from parseCampaignName()
+// This puller's own columns. The full header row is buildHeaders(GADS_COLUMNS):
+// "Date Pulled" and the naming columns from shared.gs come first.
+var GADS_COLUMNS = [
   "Campaign Name (raw)", "Campaign ID", "Campaign Type",
   "Effective Status", "Spend",
   "Impressions", "Clicks", "CTR (%)", "CPC",
   "Video Views", "View Rate (%)", "Avg CPV"
 ];
-var GADS_NUM_COLS   = GADS_HEADERS.length; // owns columns A–T
-var GADS_COL_ID     = 9;   // column J
-var GADS_COL_STATUS = 11;  // column L
-var GADS_COL_SPEND  = 12;  // column M
 
 
 // ============================================================
@@ -57,7 +52,8 @@ function gadsDailyPull() { _gadsRun(false); }
 
 function _gadsRun(rebuild) {
   var today = todayUTC();
-  var sheet = getOrCreateSheet(GADS.SHEET_NAME, GADS_HEADERS, "#0f4c81");
+  var headers = buildHeaders(GADS_COLUMNS);
+  var sheet = getOrCreateSheet(GADS.SHEET_NAME, headers, "#0f4c81");
 
   // Query 1 — lifetime metrics per campaign.
   var metricRows = _gadsSearch(
@@ -93,14 +89,10 @@ function _gadsRun(rebuild) {
 
     var status      = c.primaryStatus || c.primary_status || c.status || "";
     var channelType = c.advertisingChannelType || c.advertising_channel_type || "UNKNOWN";
-    var parsed      = parseCampaignName(c.name || "");
 
     fresh[id] = {
       status: status,
-      row: [
-        today,
-        parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
-            parsed.field6, parsed.field7,
+      row: [today].concat(parseCampaignName(c.name), [
         c.name, id,
         channelType,
         status,
@@ -112,7 +104,7 @@ function _gadsRun(rebuild) {
         videoViews,
         impressions > 0 ? parseFloat(((videoViews / impressions) * 100).toFixed(4)) : 0,
         videoViews > 0 ? parseFloat((spend / videoViews).toFixed(4)) : 0
-      ]
+      ])
     };
   });
 
@@ -125,7 +117,8 @@ function _gadsRun(rebuild) {
 
   Logger.log("Google Ads: " + Object.keys(fresh).length + " campaigns with delivery, " +
              statusRows.length + " total in account.");
-  upsertRows(sheet, GADS_NUM_COLS, GADS_COL_ID, GADS_COL_SPEND, GADS_COL_STATUS,
+  upsertRows(sheet, headers.length, colIndex(headers, "Campaign ID"),
+             colIndex(headers, "Spend"), colIndex(headers, "Effective Status"),
              fresh, "PAUSED", statusOnly, rebuild);
 }
 

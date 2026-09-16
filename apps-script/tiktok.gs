@@ -27,18 +27,13 @@ var TT = {
   START_DATE: "2025-01-01"   // ← earliest date to include
 };
 
-var TT_HEADERS = [
-  "Date Pulled",
-  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
-  // ↑ from parseCampaignName()
+// This puller's own columns. The full header row is buildHeaders(TT_COLUMNS):
+// "Date Pulled" and the naming columns from shared.gs come first.
+var TT_COLUMNS = [
   "Campaign Name (raw)", "Campaign ID", "Account", "Status",
   "Spend", "Impressions", "Clicks", "CTR", "CPC", "CPM", "Reach",
   "Video Watched 6s", "Sound Clicks", "Conversions", "Cost per Conversion"
 ];
-var TT_NUM_COLS   = TT_HEADERS.length; // owns columns A–W
-var TT_COL_ID     = 9;   // column J
-var TT_COL_STATUS = 11;  // column L
-var TT_COL_SPEND  = 12;  // column M
 
 var TT_METRICS = ["campaign_name", "spend", "impressions", "clicks", "ctr", "cpc", "cpm",
                   "reach", "video_watched_6s", "sound_usage_clicks", "conversion",
@@ -54,7 +49,8 @@ function ttDailyPull() { _ttRun(false); }
 function _ttRun(rebuild) {
   var token = getSecret("TIKTOK_ACCESS_TOKEN");
   var today = todayUTC();
-  var sheet = getOrCreateSheet(TT.SHEET_NAME, TT_HEADERS, "#161823");
+  var headers = buildHeaders(TT_COLUMNS);
+  var sheet = getOrCreateSheet(TT.SHEET_NAME, headers, "#161823");
 
   var fresh = {};
   var statusOnly = {};
@@ -83,19 +79,15 @@ function _ttRun(rebuild) {
     }, token, function (row) {
       var id     = String(row.dimensions.campaign_id);
       var m      = row.metrics;
-      var parsed = parseCampaignName(m.campaign_name);
       var status = statusMap[id] || "PAUSED";
       fresh[id] = {
         status: status,
-        row: [
-          today,
-          parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
-            parsed.field6, parsed.field7,
+        row: [today].concat(parseCampaignName(m.campaign_name), [
           m.campaign_name, id, acct.name, status,
           _ttNum(m.spend), _ttNum(m.impressions), _ttNum(m.clicks), _ttNum(m.ctr),
           _ttNum(m.cpc), _ttNum(m.cpm), _ttNum(m.reach), _ttNum(m.video_watched_6s),
           _ttNum(m.sound_usage_clicks), _ttNum(m.conversion), _ttNum(m.cost_per_conversion)
-        ]
+        ])
       };
     });
 
@@ -105,7 +97,8 @@ function _ttRun(rebuild) {
   });
 
   Logger.log("TikTok: " + Object.keys(fresh).length + " campaigns with data in range.");
-  upsertRows(sheet, TT_NUM_COLS, TT_COL_ID, TT_COL_SPEND, TT_COL_STATUS,
+  upsertRows(sheet, headers.length, colIndex(headers, "Campaign ID"),
+             colIndex(headers, "Spend"), colIndex(headers, "Status"),
              fresh, "PAUSED", statusOnly, rebuild);
 }
 

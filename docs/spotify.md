@@ -166,7 +166,7 @@ A campaign with no ad sets has no flight and keeps Spotify's value. `_spState()`
 `SP_FIELDS` at the top of `spotify.gs` lists what's requested: spend, impressions, reach,
 frequency, clicks, CTR, streams, listeners, new listeners, video views and completion rate.
 (`PAID_LISTENS` is deliberately absent: it comes back 0 for every campaign, and a column of
-zeros reads as a measurement rather than as nothing.) The API offers ~50 fields; add the ones you want there and to `SP_HEADERS`
+zeros reads as a measurement rather than as nothing.) The API offers ~50 fields; add the ones you want there and to `SP_COLUMNS`
 and the row builder, in the same order.
 
 Fields an account doesn't report come back blank rather than zero, so an empty cell reads

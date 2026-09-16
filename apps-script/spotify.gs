@@ -42,20 +42,15 @@ var SP = {
   START_DATE: "2025-01-01"   // ← earliest date to include
 };
 
-var SP_HEADERS = [
-  "Date Pulled",
-  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
-  // ↑ from parseCampaignName()
+// This puller's own columns. The full header row is buildHeaders(SP_COLUMNS):
+// "Date Pulled" and the naming columns from shared.gs come first.
+var SP_COLUMNS = [
   "Campaign Name (raw)", "Campaign ID", "Account", "Status", "Delivery Goal",
   "Start Date", "End Date",
   "Currency", "Spend", "Impressions", "Reach", "Frequency",
   "Clicks", "CTR", "Streams", "Listeners", "New Listeners",
   "Video Views", "Completion Rate"
 ];
-var SP_NUM_COLS   = SP_HEADERS.length; // owns columns A–AA
-var SP_COL_ID     = 9;   // column J
-var SP_COL_STATUS = 11;  // column L
-var SP_COL_SPEND  = 16;  // column Q
 
 // Report fields, in the order they are written to the sheet.
 // PAID_LISTENS is not here on purpose: the account reports it as 0 for every
@@ -106,7 +101,8 @@ function _spParseAccounts(raw) {
 function _spRun(rebuild) {
   var token = _spAccessToken();
   var today = todayUTC();
-  var sheet = getOrCreateSheet(SP.SHEET_NAME, SP_HEADERS, "#1db954");
+  var headers = buildHeaders(SP_COLUMNS);
+  var sheet = getOrCreateSheet(SP.SHEET_NAME, headers, "#1db954");
 
   var fresh = {};
   var statusOnly = {};
@@ -167,16 +163,12 @@ function _spRun(rebuild) {
       diag.campaigns++;
       if (a.windows > 1) diag.spanned++;
       if (!("REACH" in a.last)) diag.noUniques++;
-      var parsed = parseCampaignName(a.name);
       var info   = meta[id] || { status: a.status, goal: "" };
       var flight = flights[id] || { start: "", end: "", open: false };
       var state  = _spState(info.status, flight, today);
       fresh[id] = {
         status: state,
-        row: [
-          today,
-          parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
-          parsed.field6, parsed.field7,
+        row: [today].concat(parseCampaignName(a.name), [
           a.name, id, acct.name, state, info.goal,
           flight.start, flight.end,
           currency,
@@ -184,7 +176,7 @@ function _spRun(rebuild) {
           stats.CLICKS, stats.CTR, stats.STREAMS, stats.LISTENERS,
           stats.NEW_LISTENERS, stats.VIDEO_VIEWS,
           stats.COMPLETION_RATE
-        ]
+        ])
       };
     });
 
@@ -202,7 +194,8 @@ function _spRun(rebuild) {
              diag.noUniques + " of " + diag.campaigns + " campaigns never reported them; " +
              diag.spanned + " ran across more than one " + SP_WINDOW_DAYS +
              "-day window, which blanks them. Run spInspect() to see the raw fields.");
-  upsertRows(sheet, SP_NUM_COLS, SP_COL_ID, SP_COL_SPEND, SP_COL_STATUS,
+  upsertRows(sheet, headers.length, colIndex(headers, "Campaign ID"),
+             colIndex(headers, "Spend"), colIndex(headers, "Status"),
              fresh, "PAUSED", statusOnly, rebuild);
 }
 

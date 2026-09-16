@@ -103,4 +103,4 @@ The pullers request `video_watched_6s`, `sound_usage_clicks`, `conversion` and
 `cost_per_conversion` alongside the basics. Not every account or objective populates all of
 them; empty ones come back blank rather than zero, which keeps them out of averages and
 charts. The full metric list is in `TT_METRICS` at the top of `tiktok.gs` — add or remove
-fields there and update `TT_HEADERS` and the row builder to match.
+fields there and update `TT_COLUMNS` and the row builder to match.

@@ -24,14 +24,23 @@ One tab per platform, **one row per campaign**, holding **lifetime totals** sinc
 date you choose. Rows are matched by Campaign ID and updated in place, so the sheet is a
 live picture of every campaign rather than an ever-growing log.
 
-The scripts parse your campaign naming convention into separate columns, so you can pivot
-by artist, market, objective or whatever your names encode:
+The scripts split your campaign names into separate columns, so you can pivot by artist,
+market, objective or whatever your names encode. The convention is **two lines in
+`shared.gs`** — a separator and a list of column names — and every puller follows them:
+
+```js
+var NAME_SEPARATOR = "_";
+var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+```
 
 ```
-"Nova Cascade | Summer EP | National | Conversion | 200"
-      ↓            ↓           ↓           ↓        ↓
-   Artist      Release      Segment    Objective  Budget
+"PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
+     ↓         ↓           ↓            ↓            ↓       ↓      ↓
+ Project No. Artist     Release     Objective     Segment    PM    Mes
 ```
+
+That default is one team's convention, not a standard. Replace it with yours, or set
+`NAME_FIELDS = []` if you don't have one — the raw name is always kept.
 
 | Behaviour | Why it matters |
 |---|---|
@@ -70,6 +79,7 @@ enough — Spotify has to grant your app Ads API access, and until it does every
 ## Repo layout
 
 ```
+AGENTS.md                    ← for AI assistants: architecture, rules, how to adapt it
 apps-script/                 ← paste these five files into ONE Apps Script project
 ├── shared.gs                   helpers + the upsert engine (required by all)
 ├── meta.gs                     Meta Ads puller
@@ -129,12 +139,15 @@ account.
 
 ## Adapting it to your setup
 
-**Different naming convention?** Edit `parseCampaignName()` in `shared.gs` (and in
-`google-ads-native.js` if you use it), then rename the matching entries in each
-`*_HEADERS` array. Nothing else depends on the field names.
+**Different naming convention?** Change `NAME_SEPARATOR` and `NAME_FIELDS` at the top of
+`shared.gs` (and in `google-ads-native.js` if you use it). Headers, rows and column
+positions in every puller are built from them; nothing else needs touching.
 
-**Don't name campaigns systematically?** Delete those seven columns from the headers and
-the row builders — the metrics work regardless.
+**Don't name campaigns systematically?** Set `NAME_FIELDS = []` — the metrics work regardless.
+
+**Setting this up with an AI assistant?** Point it at [`AGENTS.md`](AGENTS.md). It lists what
+to ask you (platforms, account ids, naming convention, start date) and the rules for
+changing the code without breaking the sheet.
 
 **Want per-day rows instead of lifetime totals?** Add `segments.date` to the Google query,
 switch Meta to `time_increment: 1`, and use a composite key (campaign ID + date) in

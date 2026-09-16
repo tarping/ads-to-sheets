@@ -132,8 +132,15 @@ to its own `Currency` column, so mixed-currency tabs stay readable.
 
 ### Campaign naming — `shared.gs`
 
-`parseCampaignName()` splits campaign names into seven columns. The default expects
-underscore-separated names:
+Every puller splits campaign names using two values at the top of `shared.gs`:
+
+```js
+var NAME_SEPARATOR = "_";
+var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+```
+
+The default expects underscore-separated names with seven parts (PM is the person managing
+the campaign, Mes is the month):
 
 ```
 "PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
@@ -149,9 +156,22 @@ underscore-separated names:
 Names that don't follow it cost nothing: the missing segments come back blank, the raw
 name is kept in its own column, and the metrics land in the sheet either way.
 
-Change the split character and the field comments to match your convention, then rename
-the matching entries in each `*_HEADERS` array. If you don't name campaigns
-systematically, delete those seven columns from the headers and row builders.
+**This is one team's convention — change it to yours.** Set the separator and list your
+parts in order; headers, rows and column positions in all four pullers follow
+automatically. Some examples:
+
+| Your names look like | Set |
+|---|---|
+| `Acme \| Spring Sale \| ES \| Conversions` | `NAME_SEPARATOR = "\|"`, `NAME_FIELDS = ["Brand", "Campaign", "Market", "Objective"]` |
+| `2026Q3-Launch-Retargeting` | `NAME_SEPARATOR = "-"`, `NAME_FIELDS = ["Quarter", "Theme", "Audience"]` |
+| no convention | `NAME_FIELDS = []` |
+
+Using `google-ads-native.js`? It runs inside Google Ads rather than this project, so make
+the same change at the top of that file too.
+
+Changing the convention changes the column layout. The next run notices, rewrites the
+headers and rebuilds the tab from the API, so expect one full refresh. Columns you added to
+the right of the pulled data are left alone.
 
 `START_DATE` should be the earliest date you want included. It's a lifetime window: every
 run refetches totals from that date to today.

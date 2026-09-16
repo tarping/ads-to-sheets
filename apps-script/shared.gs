@@ -1,5 +1,5 @@
 // ============================================================
-//  SHARED HELPERS — required by meta.gs, google-ads.gs, tiktok.gs
+//  SHARED HELPERS — required by meta.gs, google-ads.gs, tiktok.gs, spotify.gs
 //
 //  All .gs files in an Apps Script project share one global
 //  scope, so these functions are visible to the other files.
@@ -8,38 +8,57 @@
 
 
 // ─────────────────────────────────────────────────────────────
-//  CAMPAIGN NAME PARSING  ← EDIT THIS TO MATCH YOUR CONVENTION
+//  CAMPAIGN NAMING  ← THE ONE PLACE TO EDIT FOR YOUR CONVENTION
 // ─────────────────────────────────────────────────────────────
-//  The pullers split each campaign name into columns so you can
-//  pivot by artist, market, objective, etc.
+//  Every puller splits each campaign name on NAME_SEPARATOR and
+//  writes one column per entry in NAME_FIELDS, in this order,
+//  right after "Date Pulled". Headers, rows and column positions
+//  in all four pullers are built from these two values, so
+//  changing them here is the whole change.
 //
 //  Default convention (underscore-separated, 7 fields):
 //
 //    "Project Number_Artist_Release_Objective_Segment_PM_Mes"
 //     e.g. "PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
+//     (PM = the person managing the campaign, Mes = month)
 //
-//  A name that does not follow it costs nothing: the segments it
-//  lacks come back blank and the raw name is kept in its own
-//  column, so the campaign still lands in the sheet with its
-//  metrics intact.
+//  Yours is probably different. Examples:
+//    "Brand | Market | Objective"  → NAME_SEPARATOR = "|";
+//                                    NAME_FIELDS = ["Brand", "Market", "Objective"];
+//    no convention at all          → NAME_FIELDS = [];  (the raw name is always kept)
 //
-//  If your campaigns are named differently, change the split
-//  character and the field names here, then update:
-//    - the *_HEADERS array in each platform file
-//    - the row builder in each platform file
-//  Nothing else depends on these field names.
+//  A name that does not follow the convention costs nothing: the
+//  segments it lacks come back blank, and the raw name has its own
+//  column, so the campaign still lands with its metrics intact.
+//
+//  Changing either value changes the column layout. The next run
+//  notices, rewrites the headers and rebuilds the tab from the API.
+//  If you use google-ads-script/google-ads-native.js, make the same
+//  change there — it runs outside this project and has its own copy.
 // ─────────────────────────────────────────────────────────────
+var NAME_SEPARATOR = "_";
+var NAME_FIELDS = ["Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes"];
+
+// Campaign name → one trimmed value per NAME_FIELDS entry, blanks for
+// missing segments. Anything past the last field is dropped.
 function parseCampaignName(name) {
-  var p = String(name || "").split("_").map(function (s) { return s.trim(); });
-  return {
-    field1: p[0] || "",   // Project Number
-    field2: p[1] || "",   // Artist
-    field3: p[2] || "",   // Release
-    field4: p[3] || "",   // Objective
-    field5: p[4] || "",   // Segment
-    field6: p[5] || "",   // PM
-    field7: p[6] || ""    // Mes
-  };
+  var p = String(name || "").split(NAME_SEPARATOR);
+  return NAME_FIELDS.map(function (_, i) { return (p[i] || "").trim(); });
+}
+
+// A puller's full header row: "Date Pulled", the naming columns, then its own.
+// Built on call, not at load time: Apps Script loads files in the order they
+// were created, so a top-level reference to NAME_FIELDS from another file can
+// run before this file exists.
+function buildHeaders(platformHeaders) {
+  return ["Date Pulled"].concat(NAME_FIELDS, platformHeaders);
+}
+
+// 0-based position of a header, failing loudly instead of writing to column -1.
+function colIndex(headers, name) {
+  var i = headers.indexOf(name);
+  if (i < 0) throw new Error("Header not found: " + name);
+  return i;
 }
 
 
@@ -63,7 +82,7 @@ function todayUTC() {
 
 
 // ─────────────────────────────────────────────────────────────
-//  UPSERT ENGINE — shared by all three pullers
+//  UPSERT ENGINE — shared by all four pullers
 // ─────────────────────────────────────────────────────────────
 //  Keeps one row per campaign, matched by Campaign ID:
 //    - campaign already in the sheet  → row updated in place
@@ -160,9 +179,9 @@ function getOrCreateSheet(name, headers, headerColor) {
   // older column layout would otherwise keep stale headers while the puller
   // writes the new ones, which puts Campaign ID in a column the upsert isn't
   // reading and turns every campaign into a "new" duplicate row.
-  var current = sheet.getLastColumn()
-    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    : [];
+  // Only the columns this puller owns are compared: a column you added to the
+  // right is yours, and must not read as a layout change on every run.
+  var current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   if (String(current) !== String(headers)) {
     var hr = sheet.getRange(1, 1, 1, headers.length);
     hr.setValues([headers]);
