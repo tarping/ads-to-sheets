@@ -26,18 +26,22 @@ var GCONFIG = {
   START_DATE     : "2025-01-01"   // ← earliest date to include
 };
 
-var GHEADERS = [
-  "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",
+// Campaign naming — keep these two identical to NAME_SEPARATOR and NAME_FIELDS
+// in apps-script/shared.gs (see the explanation there). This script runs inside
+// Google Ads, not the Apps Script project, so it can't read that file.
+var NAME_SEPARATOR = "_";
+var NAME_FIELDS = [];   // e.g. ["Brand", "Campaign", "Market", "Objective"]
+
+var GHEADERS = ["Date Pulled"].concat(NAME_FIELDS, [
   "Campaign Name (raw)", "Campaign ID", "Campaign Type",
   "Effective Status", "Spend",
   "Impressions", "Clicks", "CTR (%)", "CPC",
   "Video Views", "View Rate (%)", "Avg CPV"
-];
-var G_NUM_COLS   = GHEADERS.length; // owns columns A–R
-var G_COL_ID     = 7;   // column H
-var G_COL_STATUS = 9;   // column J
-var G_COL_SPEND  = 10;  // column K
+]);
+var G_NUM_COLS   = GHEADERS.length;
+var G_COL_ID     = GHEADERS.indexOf("Campaign ID");
+var G_COL_STATUS = GHEADERS.indexOf("Effective Status");
+var G_COL_SPEND  = GHEADERS.indexOf("Spend");
 
 
 function main() {
@@ -69,12 +73,9 @@ function main() {
     if (impressions === 0 && spend === 0) continue;
 
     var status = c.primaryStatus || c.status || "";
-    var parsed = parseCampaignName(c.name);
     fresh[id] = {
       status: status,
-      row: [
-        today,
-        parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+      row: [today].concat(parseCampaignName(c.name), [
         c.name, id,
         c.advertisingChannelType || "UNKNOWN",
         status,
@@ -86,7 +87,7 @@ function main() {
         videoViews,
         impressions > 0 ? parseFloat(((videoViews / impressions) * 100).toFixed(4)) : 0,
         videoViews > 0 ? parseFloat((spend / videoViews).toFixed(4)) : 0
-      ]
+      ])
     };
   }
 
@@ -167,17 +168,10 @@ function upsertRows(sheet, fresh, statusOnly) {
 //  HELPERS
 // ============================================================
 
-// Keep this identical to parseCampaignName() in apps-script/shared.gs
-// so both pullers split names the same way.
+// Same as parseCampaignName() in apps-script/shared.gs.
 function parseCampaignName(name) {
-  var p = String(name || "").split("|").map(function (s) { return s.trim(); });
-  return {
-    field1: p[0] || "",   // Artist
-    field2: p[1] || "",   // Release
-    field3: p[2] || "",   // Segment
-    field4: p[3] || "",   // Objective
-    field5: p[4] || ""    // Budget
-  };
+  var p = String(name || "").split(NAME_SEPARATOR);
+  return NAME_FIELDS.map(function (_, i) { return (p[i] || "").trim(); });
 }
 
 function getOrCreateSheet() {
@@ -186,14 +180,29 @@ function getOrCreateSheet() {
   }
   var ss = SpreadsheetApp.openByUrl(GCONFIG.SPREADSHEET_URL);
   var sheet = ss.getSheetByName(GCONFIG.SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(GCONFIG.SHEET_NAME);
-    sheet.appendRow(GHEADERS);
+  var created = !sheet;
+  if (created) sheet = ss.insertSheet(GCONFIG.SHEET_NAME);
+
+  // Same rule as getOrCreateSheet() in shared.gs: a tab left on an older column
+  // layout gets row 1 rewritten, and its misaligned rows cleared so this run
+  // rebuilds them.
+  // Only the columns this script owns are compared, so your own columns to the
+  // right never read as a layout change.
+  var current = sheet.getRange(1, 1, 1, GHEADERS.length).getValues()[0];
+  if (String(current) !== String(GHEADERS)) {
     var hr = sheet.getRange(1, 1, 1, GHEADERS.length);
+    hr.setValues([GHEADERS]);
     hr.setBackground("#0f4c81");
     hr.setFontColor("#ffffff").setFontWeight("bold").setFontSize(10);
     sheet.setFrozenRows(1);
-    Logger.log("Sheet created: " + GCONFIG.SHEET_NAME);
+    if (!created && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, GHEADERS.length).clearContent();
+      Logger.log("Sheet " + GCONFIG.SHEET_NAME + ": column layout changed — headers " +
+                 "rewritten and rows cleared; this run rebuilds them.");
+    } else {
+      Logger.log(created ? "Sheet created: " + GCONFIG.SHEET_NAME
+                         : "Sheet " + GCONFIG.SHEET_NAME + ": headers rewritten.");
+    }
   }
   return sheet;
 }

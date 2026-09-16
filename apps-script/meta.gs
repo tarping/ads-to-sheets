@@ -25,18 +25,14 @@ var META = {
   API_VERSION  : "v23.0"
 };
 
-var META_HEADERS = [
-  "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",   // ← from parseCampaignName()
+// This puller's own columns. The full header row is buildHeaders(META_COLUMNS):
+// "Date Pulled" and the naming columns from shared.gs come first.
+var META_COLUMNS = [
   "Campaign Name (raw)", "Campaign ID", "Objective (Meta)",
   "Status", "Effective Status",
   "Impressions", "Reach", "Spend", "Link Clicks",
   "Results", "Result Type", "Cost per Result", "Post Engagement"
 ];
-var META_NUM_COLS   = META_HEADERS.length; // owns columns A–S
-var META_COL_ID     = 7;   // column H
-var META_COL_STATUS = 10;  // column K
-var META_COL_SPEND  = 13;  // column N
 
 // Which action Meta counts as "the result" for each campaign objective.
 var META_OBJECTIVE_TO_ACTION = {
@@ -71,7 +67,8 @@ function metaDailyPull() { _metaRun(false); }
 function _metaRun(rebuild) {
   var token    = getSecret("META_ACCESS_TOKEN");
   var today    = todayUTC();
-  var sheet    = getOrCreateSheet(META.SHEET_NAME, META_HEADERS, "#1a1a2e");
+  var headers  = buildHeaders(META_COLUMNS);
+  var sheet    = getOrCreateSheet(META.SHEET_NAME, headers, "#1a1a2e");
   var meta     = _metaFetchCampaignMeta(token);      // id → name/status/objective
   var insights = _metaFetchInsights(token, today);   // one row per delivering campaign
   var convMap  = _metaFetchCustomConversions(token); // custom conversion id → name
@@ -94,7 +91,8 @@ function _metaRun(rebuild) {
 
   Logger.log("Meta: " + Object.keys(fresh).length + " campaigns with delivery, " +
              Object.keys(meta).length + " total in account.");
-  upsertRows(sheet, META_NUM_COLS, META_COL_ID, META_COL_SPEND, META_COL_STATUS,
+  upsertRows(sheet, headers.length, colIndex(headers, "Campaign ID"),
+             colIndex(headers, "Spend"), colIndex(headers, "Effective Status"),
              fresh, "PAUSED", statusOnly, rebuild);
 }
 
@@ -324,7 +322,6 @@ function _metaGetPrimaryResult(objective, actions, costArr, customConvMap, spend
 // ============================================================
 function _metaBuildRow(today, campaignId, meta, insights, customConvMap) {
   var name     = meta.name || insights.campaign_name || "";
-  var parsed   = parseCampaignName(name);
   var actions  = insights.actions || [];
   var costs    = insights.cost_per_action_type || [];
   var reachVal = parseInt(insights.reach || 0);
@@ -346,9 +343,7 @@ function _metaBuildRow(today, campaignId, meta, insights, customConvMap) {
                                    insights.conversions || [], insights.cost_per_conversion || []);
   }
 
-  return [
-    today,
-    parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+  return [today].concat(parseCampaignName(name), [
     name,
     campaignId,
     meta.objective        || "",
@@ -362,7 +357,7 @@ function _metaBuildRow(today, campaignId, meta, insights, customConvMap) {
     result.type  || "",
     (result.cost === "" || result.cost === null || isNaN(result.cost)) ? 0 : result.cost,
     _metaGetAction(actions, "post_engagement")
-  ];
+  ]);
 }
 
 

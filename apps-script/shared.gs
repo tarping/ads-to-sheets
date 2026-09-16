@@ -1,5 +1,5 @@
 // ============================================================
-//  SHARED HELPERS — required by meta.gs, google-ads.gs, tiktok.gs
+//  SHARED HELPERS — required by meta.gs, google-ads.gs, tiktok.gs, spotify.gs
 //
 //  All .gs files in an Apps Script project share one global
 //  scope, so these functions are visible to the other files.
@@ -8,31 +8,54 @@
 
 
 // ─────────────────────────────────────────────────────────────
-//  CAMPAIGN NAME PARSING  ← EDIT THIS TO MATCH YOUR CONVENTION
+//  CAMPAIGN NAMING  ← OPTIONAL, OFF BY DEFAULT
 // ─────────────────────────────────────────────────────────────
-//  The pullers split each campaign name into columns so you can
-//  pivot by artist, market, objective, etc.
+//  If your campaign names follow a convention, the pullers can
+//  split them into columns you can pivot on. Every puller splits
+//  each name on NAME_SEPARATOR and writes one column per entry in
+//  NAME_FIELDS, in order, right after "Date Pulled". Headers, rows
+//  and column positions in all four pullers are built from these
+//  two values, so changing them here is the whole change.
 //
-//  Default convention (pipe-separated, 5 fields):
+//  Off by default (NAME_FIELDS = []): conventions differ for every
+//  team, and the full campaign name is always written anyway.
 //
-//    "Artist Name | Release | Segment | Objective | Budget"
-//     e.g. "Nova Cascade | Summer EP | National | Conversion | 200"
+//  Example — names like "Acme | Spring Sale | ES | Conversions":
+//    var NAME_SEPARATOR = "|";
+//    var NAME_FIELDS = ["Brand", "Campaign", "Market", "Objective"];
 //
-//  If your campaigns are named differently, change the split
-//  character and the field names here, then update:
-//    - the *_HEADERS array in each platform file
-//    - the row builder in each platform file
-//  Nothing else depends on these field names.
+//  A name that does not follow the convention costs nothing: the
+//  segments it lacks come back blank, and the raw name has its own
+//  column, so the campaign still lands with its metrics intact.
+//
+//  Changing either value changes the column layout. The next run
+//  notices, rewrites the headers and rebuilds the tab from the API.
+//  If you use google-ads-script/google-ads-native.js, make the same
+//  change there — it runs outside this project and has its own copy.
 // ─────────────────────────────────────────────────────────────
+var NAME_SEPARATOR = "_";
+var NAME_FIELDS = [];   // e.g. ["Brand", "Campaign", "Market", "Objective"]
+
+// Campaign name → one trimmed value per NAME_FIELDS entry, blanks for
+// missing segments. Anything past the last field is dropped.
 function parseCampaignName(name) {
-  var p = String(name || "").split("|").map(function (s) { return s.trim(); });
-  return {
-    field1: p[0] || "",   // Artist
-    field2: p[1] || "",   // Release
-    field3: p[2] || "",   // Segment
-    field4: p[3] || "",   // Objective
-    field5: p[4] || ""    // Budget
-  };
+  var p = String(name || "").split(NAME_SEPARATOR);
+  return NAME_FIELDS.map(function (_, i) { return (p[i] || "").trim(); });
+}
+
+// A puller's full header row: "Date Pulled", the naming columns, then its own.
+// Built on call, not at load time: Apps Script loads files in the order they
+// were created, so a top-level reference to NAME_FIELDS from another file can
+// run before this file exists.
+function buildHeaders(platformHeaders) {
+  return ["Date Pulled"].concat(NAME_FIELDS, platformHeaders);
+}
+
+// 0-based position of a header, failing loudly instead of writing to column -1.
+function colIndex(headers, name) {
+  var i = headers.indexOf(name);
+  if (i < 0) throw new Error("Header not found: " + name);
+  return i;
 }
 
 
@@ -56,7 +79,7 @@ function todayUTC() {
 
 
 // ─────────────────────────────────────────────────────────────
-//  UPSERT ENGINE — shared by all three pullers
+//  UPSERT ENGINE — shared by all four pullers
 // ─────────────────────────────────────────────────────────────
 //  Keeps one row per campaign, matched by Campaign ID:
 //    - campaign already in the sheet  → row updated in place
@@ -146,14 +169,35 @@ function upsertRows(sheet, numCols, idCol, spendCol, statusCol, fresh, pausedLab
 function getOrCreateSheet(name, headers, headerColor) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.appendRow(headers);
+  var created = !sheet;
+  if (created) sheet = ss.insertSheet(name);
+
+  // Row 1 is rewritten whenever it no longer matches — a tab created under an
+  // older column layout would otherwise keep stale headers while the puller
+  // writes the new ones, which puts Campaign ID in a column the upsert isn't
+  // reading and turns every campaign into a "new" duplicate row.
+  // Only the columns this puller owns are compared: a column you added to the
+  // right is yours, and must not read as a layout change on every run.
+  var current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  if (String(current) !== String(headers)) {
     var hr = sheet.getRange(1, 1, 1, headers.length);
+    hr.setValues([headers]);
     hr.setBackground(headerColor || "#1a1a2e");
     hr.setFontColor("#ffffff").setFontWeight("bold").setFontSize(10);
     sheet.setFrozenRows(1);
-    Logger.log("Sheet created: " + name);
+    // Rows written under the old layout are misaligned against the new one, so
+    // they go and this run repopulates the tab from the API.
+    // ponytail: if that pull then fails the tab stays empty until the next run;
+    // the data is a mirror of the API, so the next good run refills it.
+    if (!created && sheet.getLastRow() > 1) {
+      // Only the columns this puller owns: anything you added to the right of
+      // them is yours and stays put.
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).clearContent();
+      Logger.log("Sheet " + name + ": column layout changed — headers rewritten and rows " +
+                 "cleared; this run rebuilds them.");
+    } else {
+      Logger.log(created ? "Sheet created: " + name : "Sheet " + name + ": headers rewritten.");
+    }
   }
   return sheet;
 }
