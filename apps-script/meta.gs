@@ -27,16 +27,17 @@ var META = {
 
 var META_HEADERS = [
   "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",   // ← from parseCampaignName()
+  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
+  // ↑ from parseCampaignName()
   "Campaign Name (raw)", "Campaign ID", "Objective (Meta)",
   "Status", "Effective Status",
   "Impressions", "Reach", "Spend", "Link Clicks",
   "Results", "Result Type", "Cost per Result", "Post Engagement"
 ];
-var META_NUM_COLS   = META_HEADERS.length; // owns columns A–S
-var META_COL_ID     = 7;   // column H
-var META_COL_STATUS = 10;  // column K
-var META_COL_SPEND  = 13;  // column N
+var META_NUM_COLS   = META_HEADERS.length; // owns columns A–U
+var META_COL_ID     = 9;   // column J
+var META_COL_STATUS = 12;  // column M
+var META_COL_SPEND  = 15;  // column P
 
 // Which action Meta counts as "the result" for each campaign objective.
 var META_OBJECTIVE_TO_ACTION = {
@@ -349,6 +350,7 @@ function _metaBuildRow(today, campaignId, meta, insights, customConvMap) {
   return [
     today,
     parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+            parsed.field6, parsed.field7,
     name,
     campaignId,
     meta.objective        || "",

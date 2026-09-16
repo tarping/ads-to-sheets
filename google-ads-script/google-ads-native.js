@@ -28,16 +28,16 @@ var GCONFIG = {
 
 var GHEADERS = [
   "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",
+  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
   "Campaign Name (raw)", "Campaign ID", "Campaign Type",
   "Effective Status", "Spend",
   "Impressions", "Clicks", "CTR (%)", "CPC",
   "Video Views", "View Rate (%)", "Avg CPV"
 ];
-var G_NUM_COLS   = GHEADERS.length; // owns columns A–R
-var G_COL_ID     = 7;   // column H
-var G_COL_STATUS = 9;   // column J
-var G_COL_SPEND  = 10;  // column K
+var G_NUM_COLS   = GHEADERS.length; // owns columns A–T
+var G_COL_ID     = 9;   // column J
+var G_COL_STATUS = 11;  // column L
+var G_COL_SPEND  = 12;  // column M
 
 
 function main() {
@@ -75,6 +75,7 @@ function main() {
       row: [
         today,
         parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+        parsed.field6, parsed.field7,
         c.name, id,
         c.advertisingChannelType || "UNKNOWN",
         status,
@@ -170,13 +171,15 @@ function upsertRows(sheet, fresh, statusOnly) {
 // Keep this identical to parseCampaignName() in apps-script/shared.gs
 // so both pullers split names the same way.
 function parseCampaignName(name) {
-  var p = String(name || "").split("|").map(function (s) { return s.trim(); });
+  var p = String(name || "").split("_").map(function (s) { return s.trim(); });
   return {
-    field1: p[0] || "",   // Artist
-    field2: p[1] || "",   // Release
-    field3: p[2] || "",   // Segment
+    field1: p[0] || "",   // Project Number
+    field2: p[1] || "",   // Artist
+    field3: p[2] || "",   // Release
     field4: p[3] || "",   // Objective
-    field5: p[4] || ""    // Budget
+    field5: p[4] || "",   // Segment
+    field6: p[5] || "",   // PM
+    field7: p[6] || ""    // Mes
   };
 }
 
@@ -186,14 +189,29 @@ function getOrCreateSheet() {
   }
   var ss = SpreadsheetApp.openByUrl(GCONFIG.SPREADSHEET_URL);
   var sheet = ss.getSheetByName(GCONFIG.SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(GCONFIG.SHEET_NAME);
-    sheet.appendRow(GHEADERS);
+  var created = !sheet;
+  if (created) sheet = ss.insertSheet(GCONFIG.SHEET_NAME);
+
+  // Same rule as getOrCreateSheet() in shared.gs: a tab left on an older column
+  // layout gets row 1 rewritten, and its misaligned rows cleared so this run
+  // rebuilds them.
+  var current = sheet.getLastColumn()
+    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    : [];
+  if (String(current) !== String(GHEADERS)) {
     var hr = sheet.getRange(1, 1, 1, GHEADERS.length);
+    hr.setValues([GHEADERS]);
     hr.setBackground("#0f4c81");
     hr.setFontColor("#ffffff").setFontWeight("bold").setFontSize(10);
     sheet.setFrozenRows(1);
-    Logger.log("Sheet created: " + GCONFIG.SHEET_NAME);
+    if (!created && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, GHEADERS.length).clearContent();
+      Logger.log("Sheet " + GCONFIG.SHEET_NAME + ": column layout changed — headers " +
+                 "rewritten and rows cleared; this run rebuilds them.");
+    } else {
+      Logger.log(created ? "Sheet created: " + GCONFIG.SHEET_NAME
+                         : "Sheet " + GCONFIG.SHEET_NAME + ": headers rewritten.");
+    }
   }
   return sheet;
 }

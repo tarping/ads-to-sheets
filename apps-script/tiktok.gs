@@ -29,15 +29,16 @@ var TT = {
 
 var TT_HEADERS = [
   "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",   // ← from parseCampaignName()
+  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
+  // ↑ from parseCampaignName()
   "Campaign Name (raw)", "Campaign ID", "Account", "Status",
   "Spend", "Impressions", "Clicks", "CTR", "CPC", "CPM", "Reach",
   "Video Watched 6s", "Sound Clicks", "Conversions", "Cost per Conversion"
 ];
-var TT_NUM_COLS   = TT_HEADERS.length; // owns columns A–U
-var TT_COL_ID     = 7;   // column H
-var TT_COL_STATUS = 9;   // column J
-var TT_COL_SPEND  = 10;  // column K
+var TT_NUM_COLS   = TT_HEADERS.length; // owns columns A–W
+var TT_COL_ID     = 9;   // column J
+var TT_COL_STATUS = 11;  // column L
+var TT_COL_SPEND  = 12;  // column M
 
 var TT_METRICS = ["campaign_name", "spend", "impressions", "clicks", "ctr", "cpc", "cpm",
                   "reach", "video_watched_6s", "sound_usage_clicks", "conversion",
@@ -89,6 +90,7 @@ function _ttRun(rebuild) {
         row: [
           today,
           parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+            parsed.field6, parsed.field7,
           m.campaign_name, id, acct.name, status,
           _ttNum(m.spend), _ttNum(m.impressions), _ttNum(m.clicks), _ttNum(m.ctr),
           _ttNum(m.cpc), _ttNum(m.cpm), _ttNum(m.reach), _ttNum(m.video_watched_6s),

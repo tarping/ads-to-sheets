@@ -13,10 +13,15 @@
 //  The pullers split each campaign name into columns so you can
 //  pivot by artist, market, objective, etc.
 //
-//  Default convention (pipe-separated, 5 fields):
+//  Default convention (underscore-separated, 7 fields):
 //
-//    "Artist Name | Release | Segment | Objective | Budget"
-//     e.g. "Nova Cascade | Summer EP | National | Conversion | 200"
+//    "Project Number_Artist_Release_Objective_Segment_PM_Mes"
+//     e.g. "PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
+//
+//  A name that does not follow it costs nothing: the segments it
+//  lacks come back blank and the raw name is kept in its own
+//  column, so the campaign still lands in the sheet with its
+//  metrics intact.
 //
 //  If your campaigns are named differently, change the split
 //  character and the field names here, then update:
@@ -25,13 +30,15 @@
 //  Nothing else depends on these field names.
 // ─────────────────────────────────────────────────────────────
 function parseCampaignName(name) {
-  var p = String(name || "").split("|").map(function (s) { return s.trim(); });
+  var p = String(name || "").split("_").map(function (s) { return s.trim(); });
   return {
-    field1: p[0] || "",   // Artist
-    field2: p[1] || "",   // Release
-    field3: p[2] || "",   // Segment
+    field1: p[0] || "",   // Project Number
+    field2: p[1] || "",   // Artist
+    field3: p[2] || "",   // Release
     field4: p[3] || "",   // Objective
-    field5: p[4] || ""    // Budget
+    field5: p[4] || "",   // Segment
+    field6: p[5] || "",   // PM
+    field7: p[6] || ""    // Mes
   };
 }
 
@@ -146,14 +153,35 @@ function upsertRows(sheet, numCols, idCol, spendCol, statusCol, fresh, pausedLab
 function getOrCreateSheet(name, headers, headerColor) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.appendRow(headers);
+  var created = !sheet;
+  if (created) sheet = ss.insertSheet(name);
+
+  // Row 1 is rewritten whenever it no longer matches — a tab created under an
+  // older column layout would otherwise keep stale headers while the puller
+  // writes the new ones, which puts Campaign ID in a column the upsert isn't
+  // reading and turns every campaign into a "new" duplicate row.
+  var current = sheet.getLastColumn()
+    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    : [];
+  if (String(current) !== String(headers)) {
     var hr = sheet.getRange(1, 1, 1, headers.length);
+    hr.setValues([headers]);
     hr.setBackground(headerColor || "#1a1a2e");
     hr.setFontColor("#ffffff").setFontWeight("bold").setFontSize(10);
     sheet.setFrozenRows(1);
-    Logger.log("Sheet created: " + name);
+    // Rows written under the old layout are misaligned against the new one, so
+    // they go and this run repopulates the tab from the API.
+    // ponytail: if that pull then fails the tab stays empty until the next run;
+    // the data is a mirror of the API, so the next good run refills it.
+    if (!created && sheet.getLastRow() > 1) {
+      // Only the columns this puller owns: anything you added to the right of
+      // them is yours and stays put.
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).clearContent();
+      Logger.log("Sheet " + name + ": column layout changed — headers rewritten and rows " +
+                 "cleared; this run rebuilds them.");
+    } else {
+      Logger.log(created ? "Sheet created: " + name : "Sheet " + name + ": headers rewritten.");
+    }
   }
   return sheet;
 }

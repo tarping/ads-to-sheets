@@ -2,7 +2,10 @@
 
 Start to finish this takes about 20 minutes if you already have API access to your ad
 accounts, and considerably longer if you don't — most of the time is spent getting
-credentials out of Meta, Google and TikTok, not on the scripts themselves.
+credentials out of Meta, Google, TikTok and Spotify, not on the scripts themselves.
+
+Spotify is the exception to the 20 minutes: its Ads API is partner-gated, so the wait is on
+Spotify approving your app, not on you. Read [docs/spotify.md](docs/spotify.md) first.
 
 Work through it platform by platform. Each one is independent, so a Meta-only setup is
 perfectly valid — skip the sections you don't need.
@@ -23,6 +26,7 @@ perfectly valid — skip the sections you don't need.
    | `meta` | `apps-script/meta.gs` | only if you use Meta |
    | `google-ads` | `apps-script/google-ads.gs` | only if you use Google Ads |
    | `tiktok` | `apps-script/tiktok.gs` | only if you use TikTok |
+   | `spotify` | `apps-script/spotify.gs` | only if you use Spotify |
 
    Apps Script adds the `.gs` extension itself — name the files without it.
 
@@ -53,6 +57,10 @@ Add only the ones for platforms you're using:
 | `GADS_CLIENT_SECRET` | Google Ads | [docs/google-ads.md](docs/google-ads.md) |
 | `GADS_REFRESH_TOKEN` | Google Ads | [docs/google-ads.md](docs/google-ads.md) |
 | `TIKTOK_ACCESS_TOKEN` | TikTok | [docs/tiktok.md](docs/tiktok.md) |
+| `SPOTIFY_CLIENT_ID` | Spotify | [docs/spotify.md](docs/spotify.md) |
+| `SPOTIFY_CLIENT_SECRET` | Spotify | [docs/spotify.md](docs/spotify.md) |
+| `SPOTIFY_REFRESH_TOKEN` | Spotify | [docs/spotify.md](docs/spotify.md) |
+| `SPOTIFY_ACCOUNTS` (optional) | Spotify | [docs/spotify.md](docs/spotify.md) |
 
 Script Properties are private to the project and never appear in the source, which is what
 keeps this repo safe to fork publicly. Don't move them back into the code.
@@ -107,18 +115,43 @@ var TT = {
 Multiple advertiser accounts can share one tab — add more entries and they're
 distinguished by the `Account` column.
 
+### Spotify — `spotify.gs`
+
+```js
+var SP = {
+  ACCOUNTS: [
+    { id: "11111111-2222-3333-4444-555555555555", name: "Main Account" }
+  ],
+  ...
+};
+```
+
+Spotify ad account IDs are UUIDs, not numbers. As with TikTok, several accounts share one
+tab and are told apart by the `Account` column — and each one's billing currency is written
+to its own `Currency` column, so mixed-currency tabs stay readable.
+
 ### Campaign naming — `shared.gs`
 
-`parseCampaignName()` splits campaign names into five columns. The default expects
-pipe-separated names:
+`parseCampaignName()` splits campaign names into seven columns. The default expects
+underscore-separated names:
 
 ```
-"Nova Cascade | Summer EP | National | Conversion | 200"
+"PRJ-1042_Nova Cascade_Summer EP_In feed Display_Streaming_Ana_Junho 2026"
+ │        │             │          │               │         │     └ Mes
+ │        │             │          │               │         └ PM
+ │        │             │          │               └ Segment
+ │        │             │          └ Objective
+ │        │             └ Release
+ │        └ Artist
+ └ Project Number
 ```
+
+Names that don't follow it cost nothing: the missing segments come back blank, the raw
+name is kept in its own column, and the metrics land in the sheet either way.
 
 Change the split character and the field comments to match your convention, then rename
 the matching entries in each `*_HEADERS` array. If you don't name campaigns
-systematically, delete those five columns from the headers and row builders.
+systematically, delete those seven columns from the headers and row builders.
 
 `START_DATE` should be the earliest date you want included. It's a lifetime window: every
 run refetches totals from that date to today.
@@ -134,6 +167,7 @@ Run each platform's **full pull** once, from the function dropdown in the editor
 | Meta | `metaFullPull` | — |
 | Google Ads | `gadsFullPull` | `gadsDebugAuth` |
 | TikTok | `ttFullPull` | — |
+| Spotify | `spFullPull` | — |
 
 For Google Ads, always run `gadsDebugAuth` first — it tests the token *and* API access
 separately, which makes a permissions problem obvious before you debug the wrong thing.
@@ -167,6 +201,7 @@ Run each of these once to arm the daily triggers:
 | `metaCreateDailyTrigger` | 03:00 |
 | `gadsCreateDailyTrigger` | 04:00 |
 | `ttCreateDailyTrigger` | 05:00 |
+| `spCreateDailyTrigger` | 06:00 |
 
 Hours are in the project timezone, and they're staggered so the runs don't overlap. Each
 function deletes its own previous trigger first, so running it twice is safe.

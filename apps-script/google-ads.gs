@@ -36,16 +36,17 @@ var GADS = {
 
 var GADS_HEADERS = [
   "Date Pulled",
-  "Artist", "Release", "Segment", "Objective", "Budget",   // ← from parseCampaignName()
+  "Project Number", "Artist", "Release", "Objective", "Segment", "PM", "Mes",
+  // ↑ from parseCampaignName()
   "Campaign Name (raw)", "Campaign ID", "Campaign Type",
   "Effective Status", "Spend",
   "Impressions", "Clicks", "CTR (%)", "CPC",
   "Video Views", "View Rate (%)", "Avg CPV"
 ];
-var GADS_NUM_COLS   = GADS_HEADERS.length; // owns columns A–R
-var GADS_COL_ID     = 7;   // column H
-var GADS_COL_STATUS = 9;   // column J
-var GADS_COL_SPEND  = 10;  // column K
+var GADS_NUM_COLS   = GADS_HEADERS.length; // owns columns A–T
+var GADS_COL_ID     = 9;   // column J
+var GADS_COL_STATUS = 11;  // column L
+var GADS_COL_SPEND  = 12;  // column M
 
 
 // ============================================================
@@ -99,6 +100,7 @@ function _gadsRun(rebuild) {
       row: [
         today,
         parsed.field1, parsed.field2, parsed.field3, parsed.field4, parsed.field5,
+            parsed.field6, parsed.field7,
         c.name, id,
         channelType,
         status,

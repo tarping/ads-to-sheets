@@ -1,17 +1,17 @@
 # Ads → Google Sheets
 
-Free Google Apps Script pullers that sync **Meta Ads**, **Google Ads** and **TikTok Ads**
-campaign data into one Google Sheet, updated daily and automatically.
+Free Google Apps Script pullers that sync **Meta Ads**, **Google Ads**, **TikTok Ads** and
+**Spotify Ads** campaign data into one Google Sheet, updated daily and automatically.
 
 No Zapier, no Supermetrics, no paid connectors, no server. Everything runs on Google's
 free Apps Script quota.
 
 ```
-┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-│  Meta Ads   │   │ Google Ads  │   │ TikTok Ads  │
-└──────┬──────┘   └──────┬──────┘   └──────┬──────┘
-       │                 │                 │
-       └────── Apps Script (daily trigger) ─┘
+┌───────────┐  ┌───────────┐  ┌───────────┐  ┌─────────────┐
+│ Meta Ads  │  │Google Ads │  │TikTok Ads │  │ Spotify Ads │
+└─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └──────┬──────┘
+      │              │              │               │
+      └───────── Apps Script (daily trigger) ────────┘
                          │
                 ┌────────▼─────────┐
                 │   Google Sheet   │  one tab per platform
@@ -49,20 +49,33 @@ by artist, market, objective or whatever your names encode:
 | **Meta** | Impressions, Reach, Spend, Link Clicks, Results, Result Type, Cost per Result, Post Engagement |
 | **Google** | Impressions, Clicks, CTR, CPC, Spend, Video Views, View Rate, Avg CPV |
 | **TikTok** | Impressions, Clicks, CTR, CPC, CPM, Spend, Reach, 6s Video Views, Sound Clicks, Conversions, Cost per Conversion |
+| **Spotify** | Start/End Date, Impressions, Reach, Frequency, Clicks, CTR, Spend, Currency, Streams, Listeners, New Listeners, Paid Listens, Video Views, Completion Rate |
 
 Meta's "Results" column is the tricky one: Meta reports dozens of action types per
 campaign, so the script picks the one matching each campaign's objective (purchases for
 sales campaigns, leads for lead campaigns, landing page views for traffic, reach + CPM for
 awareness…) and falls back sensibly when a campaign reports something unexpected.
 
+Spotify solves the same problem differently: it reports every metric for every campaign, so
+the puller writes them all and adds a **Delivery Goal** column telling you which one the
+campaign was buying — `AWARENESS` → impressions, `ENGAGEMENT_ON_SPOTIFY` → streams,
+`WEBSITE_TRAFFIC` → clicks. Spotify also reports its own **Currency** per ad account, so
+two accounts billing in different currencies can share the tab without their spend columns
+quietly reading as comparable.
+
+**Spotify needs partner approval.** Unlike the other three, a developer app alone isn't
+enough — Spotify has to grant your app Ads API access, and until it does every call returns
+`403`. See [docs/spotify.md](docs/spotify.md) before setting it up.
+
 ## Repo layout
 
 ```
-apps-script/                 ← paste these four files into ONE Apps Script project
+apps-script/                 ← paste these five files into ONE Apps Script project
 ├── shared.gs                   helpers + the upsert engine (required by all)
 ├── meta.gs                     Meta Ads puller
 ├── google-ads.gs               Google Ads puller (needs OAuth)
-└── tiktok.gs                   TikTok Ads puller
+├── tiktok.gs                   TikTok Ads puller
+└── spotify.gs                  Spotify Ads puller (needs OAuth + partner access)
 
 google-ads-script/           ← optional, use INSTEAD of google-ads.gs
 └── google-ads-native.js        runs inside the Google Ads UI, needs no OAuth at all
@@ -71,21 +84,23 @@ docs/
 ├── meta.md                     getting a Meta access token
 ├── google-ads.md               developer token, OAuth client, refresh token
 ├── tiktok.md                   getting a TikTok access token
+├── spotify.md                  partner access, OAuth client, refresh token
 └── troubleshooting.md          every error we hit, and the fix
 ```
 
 ## Quick start
 
 1. Create a Google Sheet → **Extensions → Apps Script**.
-2. Create four script files and paste in the contents of `apps-script/`.
+2. Create the script files you need and paste in the contents of `apps-script/`.
 3. Add your API tokens under **Project Settings → Script Properties** (see [`SETUP.md`](SETUP.md)).
 4. Edit the config block at the top of each platform file (account IDs, start date).
-5. Run `metaFullPull`, `gadsFullPull`, `ttFullPull` once each.
-6. Run `metaCreateDailyTrigger`, `gadsCreateDailyTrigger`, `ttCreateDailyTrigger` to automate.
+5. Run `metaFullPull`, `gadsFullPull`, `ttFullPull`, `spFullPull` once each.
+6. Run `metaCreateDailyTrigger`, `gadsCreateDailyTrigger`, `ttCreateDailyTrigger`,
+   `spCreateDailyTrigger` to automate.
 
 Full walkthrough: **[SETUP.md](SETUP.md)** · Credentials: **[docs/](docs/)** · Errors: **[docs/troubleshooting.md](docs/troubleshooting.md)**
 
-You do not need all three platforms — each file is independent. Only `shared.gs` is
+You do not need all four platforms — each file is independent. Only `shared.gs` is
 mandatory. Delete what you don't use.
 
 ## Cost and limits
@@ -118,7 +133,7 @@ account.
 `google-ads-native.js` if you use it), then rename the matching entries in each
 `*_HEADERS` array. Nothing else depends on the field names.
 
-**Don't name campaigns systematically?** Delete those five columns from the headers and
+**Don't name campaigns systematically?** Delete those seven columns from the headers and
 the row builders — the metrics work regardless.
 
 **Want per-day rows instead of lifetime totals?** Add `segments.date` to the Google query,
